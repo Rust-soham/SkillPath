@@ -1,0 +1,8 @@
+node_modules/
+docs/
+
+# Local tooling and generated output
+.DS_Store
+coverage/
+dist/
+*.log
