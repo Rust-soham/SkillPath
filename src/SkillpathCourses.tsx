@@ -10,29 +10,38 @@ import {
     type ChangeEvent,
 } from "react"
 
-import { courseApi, type CourseApi } from "./course-api"
+import type { CourseApi } from "./course-api"
 import {
     createCourseQueries,
     createCourseQueryClient,
 } from "./course-query"
+import { liveCourseApi } from "./course-runtime"
 import {
     formatPrice,
     type Course,
     type PricingCountry,
-} from "./course-data"
+} from "./course"
 
 type SortOrder = "featured" | "price-low" | "price-high"
-type VisualDirection = "field-guide" | "ledger" | "night-school"
+type VisualDirection =
+    | "field-guide"
+    | "night-school"
+    | "signal-poster"
+    | "quiet-library"
 
-export type SkillpathCoursesProps = {
-    readonly sectionTitle: string
-    readonly accentColor: string
+/** Designer-editable properties exposed by the Framer component. */
+export interface SkillpathCoursesProps {
+    readonly sectionTitle?: string
+    readonly accentColor?: string
     readonly style?: CSSProperties
 }
 
-type CourseCatalogueProps = SkillpathCoursesProps & {
+interface CourseCatalogueProps {
     readonly api: CourseApi
     readonly direction: VisualDirection
+    readonly sectionTitle: string
+    readonly accentColor: string
+    readonly style?: CSSProperties
 }
 
 type SkillpathRootStyle = CSSProperties & {
@@ -42,43 +51,71 @@ type SkillpathRootStyle = CSSProperties & {
 const COMPONENT_STYLES = `
 .sp-shell { --sp-ink: #17201e; --sp-muted: #64706c; --sp-paper: #f4f5f0; --sp-card: #fcfdf9; --sp-line: #cfd5cf; --sp-radius: 3px; container-type: inline-size; width: 100%; min-height: 100%; padding: clamp(26px, 4cqi, 58px); overflow: hidden; color: var(--sp-ink); background: var(--sp-paper); font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif; }
 .sp-shell * { box-sizing: border-box; }
-.sp-shell[data-direction="field-guide"] { background-image: linear-gradient(rgba(23,32,30,.035) 1px, transparent 1px); background-size: 100% 32px; }
-.sp-shell[data-direction="ledger"] { --sp-ink: #101318; --sp-muted: #59616d; --sp-paper: #edf1f5; --sp-card: transparent; --sp-line: #101318; --sp-radius: 0px; font-family: "DIN Alternate", "Arial Narrow", sans-serif; }
-.sp-shell[data-direction="night-school"] { --sp-ink: #eef7df; --sp-muted: #a9b29f; --sp-paper: #131612; --sp-card: #1b2019; --sp-line: #394136; --sp-radius: 14px; font-family: "Avenir Next", Avenir, sans-serif; }
+.sp-shell[data-direction="field-guide"] { --sp-ink: #101714; --sp-muted: #46534e; --sp-paper: #edf2eb; --sp-card: #ffffff; --sp-line: #9fac9f; background-image: radial-gradient(circle at 92% 4%, color-mix(in srgb, var(--skillpath-accent), transparent 78%) 0 8cqi, transparent 8.1cqi), linear-gradient(rgba(23,32,30,.055) 1px, transparent 1px); background-size: auto, 100% 32px; }
+.sp-shell[data-direction="night-school"] { --sp-ink: #f4f7e9; --sp-muted: #b4bca8; --sp-paper: #131612; --sp-card: #1b2019; --sp-line: #465040; --sp-radius: 14px; font-family: "Gill Sans", "Trebuchet MS", sans-serif; }
+.sp-shell[data-direction="signal-poster"] { --sp-ink: #171511; --sp-muted: #625d52; --sp-paper: #f2ead7; --sp-card: #fffaf0; --sp-line: #171511; --sp-radius: 0px; font-family: "Arial Narrow", "Avenir Next Condensed", sans-serif; background-image: radial-gradient(circle at 92% 7%, var(--skillpath-accent) 0 6.5cqi, transparent 6.6cqi), linear-gradient(90deg, transparent 49.9%, rgba(23,21,17,.08) 50%, transparent 50.1%); }
+.sp-shell[data-direction="quiet-library"] { --sp-ink: #17160f; --sp-muted: #5e594d; --sp-paper: #ece5d8; --sp-card: #fffdf7; --sp-line: #b7ad9c; --sp-radius: 0px; font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif; }
 .sp-heading-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 24px; margin-bottom: clamp(24px, 4cqi, 48px); }
 .sp-kicker { display: inline-flex; align-items: center; gap: 9px; margin: 0 0 11px; color: var(--skillpath-accent); font: 800 11px/1 "SFMono-Regular", Consolas, monospace; letter-spacing: .13em; text-transform: uppercase; }
 .sp-kicker::before { width: 22px; height: 3px; background: currentColor; content: ""; }
 .sp-title { max-width: 820px; margin: 0; font: 650 clamp(35px, 6.2cqi, 76px)/.96 "Iowan Old Style", "Palatino Linotype", Georgia, serif; letter-spacing: -.046em; text-wrap: balance; }
-[data-direction="ledger"] .sp-title { max-width: 920px; font-family: "DIN Alternate", "Arial Narrow", sans-serif; font-weight: 900; letter-spacing: -.055em; text-transform: uppercase; }
-[data-direction="night-school"] .sp-title { font-family: "Avenir Next", Avenir, sans-serif; font-weight: 700; }
+[data-direction="night-school"] .sp-title { max-width: 850px; font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif; font-weight: 500; font-style: italic; letter-spacing: -.055em; }
+[data-direction="signal-poster"] .sp-title { max-width: 900px; font-family: "Arial Black", "Arial Narrow", sans-serif; font-weight: 900; letter-spacing: -.07em; line-height: .86; text-transform: uppercase; }
+[data-direction="quiet-library"] .sp-heading-row { align-items: center; margin-bottom: clamp(32px, 6cqi, 72px); text-align: center; }
+[data-direction="quiet-library"] .sp-heading-row > div { grid-column: 1 / -1; }
+[data-direction="quiet-library"] .sp-kicker { justify-content: center; }
+[data-direction="quiet-library"] .sp-title { max-width: 760px; margin-inline: auto; font-weight: 500; letter-spacing: -.04em; }
+[data-direction="quiet-library"] .sp-count { position: absolute; right: clamp(26px, 4cqi, 58px); }
 .sp-count { margin: 0 0 5px; color: var(--sp-muted); font: 650 12px/1.2 "SFMono-Regular", Consolas, monospace; letter-spacing: .06em; white-space: nowrap; }
 .sp-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) 210px; gap: 10px; margin-bottom: 20px; }
 .sp-field { width: 100%; height: 48px; border: 1px solid var(--sp-line); border-radius: var(--sp-radius); outline: none; color: var(--sp-ink); background: var(--sp-card); font: inherit; transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
 .sp-search { padding: 0 15px; }
-.sp-select { padding: 0 38px 0 14px; cursor: pointer; }
+.sp-select { padding: 0 42px 0 14px; appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--sp-ink) 50%), linear-gradient(135deg, var(--sp-ink) 50%, transparent 50%); background-position: calc(100% - 18px) 21px, calc(100% - 13px) 21px; background-repeat: no-repeat; background-size: 5px 5px, 5px 5px; cursor: pointer; line-height: 46px; }
+.sp-field::placeholder { color: var(--sp-muted); opacity: 1; }
+[data-direction="field-guide"] .sp-field, [data-direction="field-guide"] .sp-field::placeholder { font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif; font-size: 14px; font-weight: 600; letter-spacing: 0; }
 .sp-field:focus-visible { border-color: var(--skillpath-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--skillpath-accent), transparent 72%); }
 .sp-notice { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 20px; padding: 13px 15px; border: 1px solid color-mix(in srgb, var(--skillpath-accent), var(--sp-line) 55%); border-radius: var(--sp-radius); color: var(--sp-ink); background: color-mix(in srgb, var(--skillpath-accent), var(--sp-paper) 92%); font-size: 14px; line-height: 1.45; }
 .sp-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .sp-card { position: relative; display: flex; min-width: 0; min-height: 286px; flex-direction: column; padding: 21px; overflow: hidden; border: 1px solid var(--sp-line); border-radius: var(--sp-radius); background: var(--sp-card); transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease; }
 .sp-card:hover { z-index: 1; border-color: var(--skillpath-accent); transform: translateY(-3px); box-shadow: 6px 7px 0 color-mix(in srgb, var(--skillpath-accent), transparent 74%); }
-[data-direction="ledger"] .sp-grid { gap: 0; border-top: 2px solid var(--sp-line); border-left: 2px solid var(--sp-line); }
-[data-direction="ledger"] .sp-card { border-width: 0 2px 2px 0; }
-[data-direction="ledger"] .sp-card:hover { color: #fff; background: var(--skillpath-accent); box-shadow: none; transform: none; }
-[data-direction="ledger"] .sp-card:hover .sp-category, [data-direction="ledger"] .sp-card:hover .sp-description, [data-direction="ledger"] .sp-card:hover .sp-type { color: rgba(255,255,255,.72); }
-[data-direction="night-school"] .sp-card::after { position: absolute; inset: auto 16px 14px auto; width: 7px; height: 7px; border-radius: 50%; background: var(--skillpath-accent); box-shadow: 0 0 18px var(--skillpath-accent); content: ""; }
+[data-direction="field-guide"] .sp-card { border-width: 1.5px; box-shadow: 5px 6px 0 color-mix(in srgb, var(--skillpath-accent), transparent 72%); }
+[data-direction="field-guide"] .sp-card::before { position: absolute; inset: 0 auto 0 0; width: 5px; background: var(--skillpath-accent); content: ""; }
+[data-direction="field-guide"] .sp-card:nth-child(3n + 2) { background: color-mix(in srgb, var(--skillpath-accent), white 94%); }
+[data-direction="field-guide"] .sp-card:hover { box-shadow: 8px 9px 0 color-mix(in srgb, var(--skillpath-accent), transparent 56%); transform: translate(-2px, -4px); }
+[data-direction="field-guide"] .sp-category { color: color-mix(in srgb, var(--skillpath-accent), #17201e 28%); }
+[data-direction="signal-poster"] .sp-grid { gap: 10px; }
+[data-direction="signal-poster"] .sp-card { min-height: 310px; border-width: 2px; box-shadow: 6px 6px 0 var(--sp-line); }
+[data-direction="signal-poster"] .sp-card:nth-child(3n + 2) { background: color-mix(in srgb, var(--skillpath-accent), white 84%); }
+[data-direction="signal-poster"] .sp-card:hover { color: #fff; background: var(--skillpath-accent); box-shadow: 10px 10px 0 var(--sp-line); transform: translate(-3px, -3px); }
+[data-direction="signal-poster"] .sp-card:hover .sp-category, [data-direction="signal-poster"] .sp-card:hover .sp-description, [data-direction="signal-poster"] .sp-card:hover .sp-type, [data-direction="signal-poster"] .sp-card:hover .sp-price, [data-direction="signal-poster"] .sp-card:hover .sp-index { color: #fff; }
+[data-direction="quiet-library"] .sp-grid { gap: 1px; background: var(--sp-line); }
+[data-direction="quiet-library"] .sp-card { min-height: 315px; border: 0; padding: 28px 25px; }
+[data-direction="quiet-library"] .sp-card::before { position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--skillpath-accent); content: ""; transform: scaleY(.22); transform-origin: bottom; transition: transform .24s ease; }
+[data-direction="quiet-library"] .sp-card:hover { z-index: 1; border-color: transparent; box-shadow: 0 12px 34px rgba(54,45,30,.16); transform: translateY(-3px); }
+[data-direction="quiet-library"] .sp-card:hover::before { transform: scaleY(1); }
 .sp-card-top { display: flex; min-height: 28px; align-items: start; justify-content: space-between; gap: 10px; margin-bottom: 26px; }
 .sp-category { overflow: hidden; color: var(--sp-muted); font: 750 11px/1.25 "SFMono-Regular", Consolas, monospace; letter-spacing: .08em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
 .sp-badge { flex: none; padding: 5px 8px; border: 1px solid currentColor; border-radius: 999px; color: var(--skillpath-accent); font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
-[data-direction="ledger"] .sp-badge { border-radius: 0; }
 .sp-card-title { margin: 0 0 10px; font: 650 22px/1.12 "Iowan Old Style", "Palatino Linotype", Georgia, serif; letter-spacing: -.025em; }
-[data-direction="ledger"] .sp-card-title, [data-direction="night-school"] .sp-card-title { font-family: inherit; font-weight: 800; }
+[data-direction="night-school"] .sp-card-title { font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif; font-size: 24px; font-weight: 500; }
+[data-direction="signal-poster"] .sp-card-title { max-width: 90%; font-family: "Arial Black", "Arial Narrow", sans-serif; font-size: 25px; font-weight: 900; letter-spacing: -.05em; line-height: .98; text-transform: uppercase; }
+[data-direction="quiet-library"] .sp-card-title { font-size: 25px; font-weight: 500; line-height: 1.08; }
 .sp-description { display: -webkit-box; margin: 0; overflow: hidden; color: var(--sp-muted); font-size: 13px; line-height: 1.55; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .sp-card-footer { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-top: auto; padding-top: 26px; }
 .sp-price { color: var(--sp-ink); font-size: 24px; font-weight: 800; letter-spacing: -.03em; }
 .sp-price-loading { color: var(--sp-muted); font-size: 13px; font-weight: 650; letter-spacing: 0; }
 .sp-dual-price { display: flex; flex-wrap: wrap; gap: 3px 10px; font-size: 16px; line-height: 1.3; }
 .sp-price-label { color: var(--sp-muted); font: 700 9px/1 "SFMono-Regular", Consolas, monospace; letter-spacing: .08em; }
-.sp-type { color: var(--sp-muted); font: 650 10px/1 "SFMono-Regular", Consolas, monospace; letter-spacing: .04em; text-transform: uppercase; }
+.sp-type { display: inline-flex; min-height: 25px; align-items: center; gap: 6px; padding: 0 9px; border: 1px solid color-mix(in srgb, var(--skillpath-accent), var(--sp-line) 40%); border-radius: 999px; color: color-mix(in srgb, var(--skillpath-accent), var(--sp-ink) 18%); background: color-mix(in srgb, var(--skillpath-accent), var(--sp-card) 90%); font: 750 9px/1 "SFMono-Regular", Consolas, monospace; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.sp-type::before { width: 6px; height: 6px; flex: none; border-radius: 50%; background: var(--skillpath-accent); content: ""; }
+[data-direction="signal-poster"] .sp-type { border-radius: 0; border-color: var(--sp-ink); color: var(--sp-ink); background: transparent; }
+[data-direction="signal-poster"] .sp-card:hover .sp-type { border-color: #fff; color: #fff; background: transparent; }
+[data-direction="night-school"] .sp-type { color: var(--sp-ink); background: color-mix(in srgb, var(--skillpath-accent), var(--sp-card) 84%); }
+[data-direction="quiet-library"] .sp-type { border-radius: 2px; }
+.sp-index { position: absolute; right: 20px; top: 61px; color: color-mix(in srgb, var(--sp-muted), transparent 58%); font: 800 34px/1 "SFMono-Regular", Consolas, monospace; letter-spacing: -.08em; pointer-events: none; }
+[data-direction="field-guide"] .sp-index, [data-direction="night-school"] .sp-index { display: none; }
+[data-direction="signal-poster"] .sp-index { right: 16px; top: 58px; color: var(--skillpath-accent); font-family: "Arial Black", sans-serif; font-size: 44px; }
+[data-direction="quiet-library"] .sp-index { right: 24px; top: 66px; font-family: inherit; font-size: 14px; font-weight: 400; font-style: italic; letter-spacing: 0; }
 .sp-button { flex: none; min-height: 40px; padding: 0 15px; border: 1px solid var(--skillpath-accent); border-radius: var(--sp-radius); color: #fff; background: var(--skillpath-accent); cursor: pointer; font: 750 13px/1 inherit; transition: filter .15s ease, transform .15s ease; }
 .sp-button:hover { filter: brightness(.9); }
 .sp-button:active { transform: translateY(1px) scale(.98); }
@@ -92,7 +129,7 @@ const COMPONENT_STYLES = `
 @keyframes sp-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
 @media (prefers-reduced-motion: reduce) { .sp-shell *, .sp-shell *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
 @container (max-width: 899px) { .sp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@container (max-width: 599px) { .sp-shell { padding: 24px 16px; } .sp-heading-row { grid-template-columns: 1fr; gap: 10px; } .sp-toolbar { grid-template-columns: 1fr; } .sp-grid { grid-template-columns: 1fr; } .sp-card { min-height: 255px; } .sp-notice { align-items: start; flex-direction: column; } }
+@container (max-width: 599px) { .sp-shell { padding: 24px 16px; } .sp-heading-row { grid-template-columns: 1fr; gap: 10px; } .sp-toolbar { grid-template-columns: 1fr; } .sp-grid { grid-template-columns: 1fr; } .sp-card { min-height: 255px; } .sp-notice { align-items: start; flex-direction: column; } [data-direction="quiet-library"] .sp-count { position: static; } }
 `
 
 function parseSortOrder(value: string): SortOrder {
@@ -184,6 +221,10 @@ export function CourseCatalogue({
     }
     const courses = coursesQuery.data
     const showCatalogue = courses !== undefined && courses.length > 0
+    const coursesAreRecovering =
+        coursesQuery.isFetching && coursesQuery.failureCount > 0
+    const countryIsRecovering =
+        countryQuery.isFetching && countryQuery.failureCount > 0
     const onSortChange = (event: ChangeEvent<HTMLSelectElement>) =>
         setSortOrder(parseSortOrder(event.currentTarget.value))
 
@@ -240,15 +281,44 @@ export function CourseCatalogue({
                 </div>
             )}
 
+            {showCatalogue && countryIsRecovering && (
+                <div className="sp-notice" role="status" aria-live="polite">
+                    <span>Detecting currency… Automatic retry in progress.</span>
+                </div>
+            )}
+
+            {showCatalogue && coursesAreRecovering && (
+                <div className="sp-notice" role="status" aria-live="polite">
+                    <span>Refreshing courses… Automatic retry in progress.</span>
+                </div>
+            )}
+
+            {showCatalogue && coursesQuery.isError && !coursesQuery.isFetching && (
+                <div className="sp-notice" role="status">
+                    <span>We couldn’t refresh the catalogue. Your loaded courses are still available.</span>
+                    <button
+                        className="sp-button"
+                        type="button"
+                        onClick={() => void coursesQuery.refetch()}
+                    >
+                        Retry refresh
+                    </button>
+                </div>
+            )}
+
             {coursesQuery.isPending && (
-                <div className="sp-grid" aria-label="Loading courses" aria-busy="true">
+                <div
+                    className="sp-grid"
+                    aria-label={coursesAreRecovering ? "Retrying courses" : "Loading courses"}
+                    aria-busy="true"
+                >
                     {Array.from({ length: 6 }, (_, index) => (
                         <div className="sp-skeleton" key={index} aria-hidden="true" />
                     ))}
                 </div>
             )}
 
-            {coursesQuery.isError && (
+            {coursesQuery.isError && courses === undefined && (
                 <div className="sp-state" role="alert">
                     <div className="sp-state-copy">
                         <h3>Courses took a detour.</h3>
@@ -291,12 +361,15 @@ export function CourseCatalogue({
 
             {visibleCourses.length > 0 && (
                 <div className="sp-grid">
-                    {visibleCourses.map((course) => (
+                    {visibleCourses.map((course, index) => (
                         <article className="sp-card" key={course.courseCode}>
                             <div className="sp-card-top">
                                 <span className="sp-category">{course.mainCategory}</span>
                                 {course.refundable && <span className="sp-badge">Refundable</span>}
                             </div>
+                            <span className="sp-index" aria-hidden="true">
+                                {(index + 1).toString().padStart(2, "0")}
+                            </span>
                             <h3 className="sp-card-title">{course.courseName}</h3>
                             <p className="sp-description">{course.description}</p>
                             <footer className="sp-card-footer">
@@ -317,53 +390,83 @@ export function CourseCatalogue({
 
 function FramerCourseDirection({
     direction,
-    ...props
-}: SkillpathCoursesProps & { readonly direction: VisualDirection }) {
+    sectionTitle,
+    accentColor,
+    style,
+}: {
+    readonly direction: VisualDirection
+    readonly sectionTitle: string
+    readonly accentColor: string
+    readonly style: CSSProperties | undefined
+}) {
     const [queryClient] = useState(createCourseQueryClient)
     return (
         <QueryClientProvider client={queryClient}>
-            <CourseCatalogue api={courseApi} direction={direction} {...props} />
+            <CourseCatalogue
+                api={liveCourseApi}
+                direction={direction}
+                sectionTitle={sectionTitle}
+                accentColor={accentColor}
+                {...(style === undefined ? {} : { style })}
+            />
         </QueryClientProvider>
     )
 }
 
 /** Editorial field-guide direction. Recommended default for the assignment. */
-export function SkillpathCourses(props: SkillpathCoursesProps) {
-    return <FramerCourseDirection direction="field-guide" {...props} />
-}
-
-/** High-contrast workshop-ledger direction for Framer comparison. */
-export function SkillpathCoursesLedger(props: SkillpathCoursesProps) {
-    return <FramerCourseDirection direction="ledger" {...props} />
+export function SkillpathCourses({
+    sectionTitle = "Build skills that move you forward.",
+    accentColor = "#176B52",
+    style,
+}: SkillpathCoursesProps = {}) {
+    return <FramerCourseDirection direction="field-guide" sectionTitle={sectionTitle} accentColor={accentColor} style={style} />
 }
 
 /** Dark night-school direction for Framer comparison. */
-export function SkillpathCoursesNight(props: SkillpathCoursesProps) {
-    return <FramerCourseDirection direction="night-school" {...props} />
+export function SkillpathCoursesNight({
+    sectionTitle = "Build skills that move you forward.",
+    accentColor = "#B7F34A",
+    style,
+}: SkillpathCoursesProps = {}) {
+    return <FramerCourseDirection direction="night-school" sectionTitle={sectionTitle} accentColor={accentColor} style={style} />
 }
 
-const DEFAULT_PROPS: SkillpathCoursesProps = {
-    sectionTitle: "Build skills that move you forward.",
-    accentColor: "#176B52",
+/** Bold poster-school direction inspired by contemporary Framer editorial work. */
+export function SkillpathCoursesSignal({
+    sectionTitle = "Build skills that move you forward.",
+    accentColor = "#E3452F",
+    style,
+}: SkillpathCoursesProps = {}) {
+    return <FramerCourseDirection direction="signal-poster" sectionTitle={sectionTitle} accentColor={accentColor} style={style} />
 }
 
-const PROPERTY_CONTROLS = {
-    sectionTitle: {
-        type: ControlType.String,
-        title: "Heading",
-        defaultValue: DEFAULT_PROPS.sectionTitle,
-    },
-    accentColor: {
-        type: ControlType.Color,
-        title: "Accent",
-        defaultValue: DEFAULT_PROPS.accentColor,
-    },
-} as const
+/** Restrained reading-room direction with bookish typography and precise rules. */
+export function SkillpathCoursesLibrary({
+    sectionTitle = "Build skills that move you forward.",
+    accentColor = "#3C684F",
+    style,
+}: SkillpathCoursesProps = {}) {
+    return <FramerCourseDirection direction="quiet-library" sectionTitle={sectionTitle} accentColor={accentColor} style={style} />
+}
 
-SkillpathCourses.defaultProps = DEFAULT_PROPS
-SkillpathCoursesLedger.defaultProps = { ...DEFAULT_PROPS, accentColor: "#125BE4" }
-SkillpathCoursesNight.defaultProps = { ...DEFAULT_PROPS, accentColor: "#B7F34A" }
+const DEFAULT_SECTION_TITLE = "Build skills that move you forward."
 
-addPropertyControls(SkillpathCourses, PROPERTY_CONTROLS)
-addPropertyControls(SkillpathCoursesLedger, PROPERTY_CONTROLS)
-addPropertyControls(SkillpathCoursesNight, PROPERTY_CONTROLS)
+function createPropertyControls(accentColor: string) {
+    return {
+        sectionTitle: {
+            type: ControlType.String,
+            title: "Heading",
+            defaultValue: DEFAULT_SECTION_TITLE,
+        },
+        accentColor: {
+            type: ControlType.Color,
+            title: "Accent",
+            defaultValue: accentColor,
+        },
+    } as const
+}
+
+addPropertyControls(SkillpathCourses, createPropertyControls("#176B52"))
+addPropertyControls(SkillpathCoursesNight, createPropertyControls("#B7F34A"))
+addPropertyControls(SkillpathCoursesSignal, createPropertyControls("#E3452F"))
+addPropertyControls(SkillpathCoursesLibrary, createPropertyControls("#3C684F"))

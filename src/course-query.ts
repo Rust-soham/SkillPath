@@ -1,14 +1,14 @@
 import { QueryClient, type QueryKey } from "@tanstack/react-query"
 import type { Result } from "better-result"
 
-import type { CourseApi } from "./course-api"
-import type { CourseApiError } from "./course-data"
+import type { CourseApi, CourseApiError } from "./course-api"
 
-export const courseQueryKey = ["skillpath", "courses"] as const
-export const countryQueryKey = ["skillpath", "country"] as const
+const courseQueryKey = ["skillpath", "courses"] as const
+const countryQueryKey = ["skillpath", "country"] as const
 
-/** Convert the Result protocol into TanStack Query's rejection protocol. */
-export function unwrapQueryResult<T>(result: Result<T, CourseApiError>): T {
+export const COURSE_RETRY_DELAY_MS = 300
+
+function unwrapQueryResult<T>(result: Result<T, CourseApiError>): T {
     if (result.isErr()) throw result.error
     return result.value
 }
@@ -24,7 +24,7 @@ export function shouldRetryCourseQuery(
         case "NetworkError":
             return true
         case "HttpResponseError":
-            return error.status === 404 || error.status >= 500
+            return error.status === 404 || error.status === 500
         case "RequestAbortedError":
         case "InvalidJsonError":
         case "SchemaMismatchError":
@@ -32,8 +32,7 @@ export function shouldRetryCourseQuery(
     }
 }
 
-/** Query options shared by both independent assignment API reads. */
-export function createQueryOptions<T>(
+function createQueryOptions<T>(
     queryKey: QueryKey,
     operation: (signal: AbortSignal) => Promise<Result<T, CourseApiError>>
 ) {
@@ -42,7 +41,7 @@ export function createQueryOptions<T>(
         queryFn: async ({ signal }: { readonly signal: AbortSignal }) =>
             unwrapQueryResult(await operation(signal)),
         retry: shouldRetryCourseQuery,
-        retryDelay: 300,
+        retryDelay: COURSE_RETRY_DELAY_MS,
         staleTime: Number.POSITIVE_INFINITY,
         refetchOnWindowFocus: false,
         refetchOnReconnect: false,

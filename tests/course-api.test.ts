@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 
-import { createCourseApi, type FetchLike } from "./course-api"
+import { createCourseApi, type FetchLike } from "../src/course-api"
 import { COURSE_FIXTURE as COURSE } from "./test-fixtures"
 
 function fetchResponse(response: Response): FetchLike {
@@ -8,7 +8,7 @@ function fetchResponse(response: Response): FetchLike {
 }
 
 describe("course HTTP client", () => {
-    it("performs one GET and parses a valid course response", async () => {
+    it("performs one GET and parses valid variable-length course responses", async () => {
         const fetchImplementation = fetchResponse(Response.json([COURSE]))
         const api = createCourseApi(fetchImplementation)
 
@@ -20,6 +20,10 @@ describe("course HTTP client", () => {
             "https://syncsphere-hiv6.onrender.com/assignment/course-data",
             expect.objectContaining({ method: "GET" })
         )
+
+        const emptyApi = createCourseApi(fetchResponse(Response.json([])))
+        const empty = await emptyApi.loadCourses(new AbortController().signal)
+        expect(empty.isOk() && empty.value).toEqual([])
     })
 
     it("classifies flaky 500 responses without retrying inside the client", async () => {
@@ -50,5 +54,26 @@ describe("course HTTP client", () => {
 
         expect(invalidJson.isErr() && invalidJson.error._tag).toBe("InvalidJsonError")
         expect(wrongShape.isErr() && wrongShape.error._tag).toBe("SchemaMismatchError")
+    })
+
+    it("parses supported countries and rejects unsupported country values", async () => {
+        const indiaApi = createCourseApi(
+            fetchResponse(Response.json({ country_code: "IN" }))
+        )
+        const unsupportedApi = createCourseApi(
+            fetchResponse(Response.json({ country_code: "GB" }))
+        )
+
+        const india = await indiaApi.loadPricingCountry(
+            new AbortController().signal
+        )
+        const unsupported = await unsupportedApi.loadPricingCountry(
+            new AbortController().signal
+        )
+
+        expect(india.isOk() && india.value).toBe("IN")
+        expect(unsupported.isErr() && unsupported.error._tag).toBe(
+            "SchemaMismatchError"
+        )
     })
 })

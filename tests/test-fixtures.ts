@@ -1,4 +1,4 @@
-import type { Course } from "./course-data"
+import type { Course } from "../src/course"
 
 /** Valid representative course used at public test seams. */
 export const COURSE_FIXTURE: Course = {
