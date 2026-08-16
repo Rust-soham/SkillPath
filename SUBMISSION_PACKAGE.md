@@ -8,9 +8,9 @@ sharing it.
 
 ### Skillpath — Junior Full-Stack Developer Technical Assessment
 
-**Published Framer site:** [ADD PUBLISHED FRAMER LINK]
+**Published Framer site:** https://moody-partners-114745.framer.app/
 
-**Public source code:** [ADD PUBLIC REPOSITORY LINK]
+**Public source code:** https://github.com/Rust-soham/SkillPath
 
 **Shared AI conversation:** [ADD SHARED CODEX CHAT LINK]
 
@@ -135,19 +135,18 @@ courses component to solve overflow.
 ### 3. Add the course code component
 
 1. In **Assets → Code**, choose **Create Code File**.
-2. Recreate the source files `course.ts`, `course-api.ts`, `course-query.ts`,
-   `course-runtime.ts`, and `SkillpathCourses.tsx` from the public repository.
-3. Do not copy `framer-preview-shim.ts`; that file exists only for local Vite
-   previewing.
-4. Confirm Framer resolves `framer`, `react`, `@tanstack/react-query`,
-   `better-result`, and `zod`. Framer describes arbitrary npm imports as
-   experimental, so resolve and preview every import before composing the page.
-5. Insert only the `SkillpathCourses` export onto the page between Hero and
+2. Copy `src/SkillpathCourses.framer.tsx` from the public repository into
+   `SkillpathCourses.tsx`. This self-contained Framer deployment file uses only
+   React and Framer imports while retaining explicit runtime response validation.
+3. The modular local implementation remains in `course.ts`, `course-api.ts`,
+   `course-query.ts`, `course-runtime.ts`, and `SkillpathCourses.tsx`; it uses
+   Zod, TanStack Query, and Better Result and is covered by the repository tests.
+4. Insert only the default `SkillpathCourses` export onto the page between Hero and
    Footer. Set width `Fill`, height `Fit Content`, min-width `0`.
-6. In its property panel set Heading to `Choose your next useful skill.` and
+5. In its property panel set Heading to `Choose your next useful skill.` and
    Accent to `#176B52`. Change both once to prove the controls work, then restore
    the final values.
-7. Rename the layer `SkillpathCourses — Live API`.
+6. Rename the layer `SkillpathCourses — Live API`.
 
 Do not place the hero or footer inside the course code component in Framer. The
 native layers make page structure and responsive behavior easy for the reviewer
